@@ -1,0 +1,46 @@
+---
+title: "Simulating A Single Level Regression Model"
+author: William Murrah
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+```
+
+[Return to Tutorial Menu](https::/auqmer.github.io/MultilevelModelR/)
+
+```{r}
+library(haven)
+popdat <- read_sav(file ="https://github.com/MultiLevelAnalysis/Datasets-third-edition-Multilevel-book/blob/master/chapter%202/popularity/SPSS/popular2.sav?raw=true")
+```
+
+
+
+```{r intro}
+n <- 1000
+x1 <- rnorm(n, 50, 10)
+hist(x1, breaks = "fd", freq = FALSE)
+curve(dnorm(x, mean = 50, sd = sd(x1)), lwd = 3, add = TRUE, col = "red")
+```
+
+```{r}
+y <- 5
+```
+
+
+```{r}
+set.seed(123456789)
+extrav <- round(rnorm(2000, 5, 1.25))
+barplot(table(extrav))
+```
+
+
+
+
+[Return to Tutorial Menu](https::/auqmer.github.io/MultilevelModelR/)
+
+
+	
+	

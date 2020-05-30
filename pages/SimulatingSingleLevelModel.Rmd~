@@ -1,0 +1,23 @@
+---
+title: "Simulating A Single Level Regression Model"
+author: William Murrah
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+```
+
+[Return to Tutorial Menu](https::/auqmer.github.io/MultilevelModelR/)
+
+
+
+
+
+
+[Return to Tutorial Menu](https::/auqmer.github.io/MultilevelModelR/)
+
+
+	
+	
