@@ -1,0 +1,244 @@
+---
+title: "Analysing Longitudinal Data"
+subtitle: "Fixed Occasions"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, comment = NULL, message = FALSE)
+```
+
+## Conceptual Issues
+
+First, I list some issues to think about with longitudinal modeling.
+With most longitudinal data, we have time points or occasions nested within individuals. 
+So, unlike previous data we look at, individuals are now level 2 instead of level 1.
+
+#### Fixed and Varying Occasions
+
+Time can be measured at fixed intervals, in which every individual is measured at the same intervals and or times. 
+Alternatively, individuals can be measured at varying times. In this post we will look at longitudinal data with fixed occasions..
+
+### Advantages of Multilevel Longitudinal Modeling
+
+Recall from the text that there are advantages to collecting longitudinal data over cross-sectional data.
+These include:
+
+1. greater power with additional time points
+2. the ability to look at *how* the outcome changes (patterns of change) and not just *whether* they change.
+
+There are a number of advantages to using multilevel models to model longitudinal data. 
+These include:
+
+1. The ability to model growth curves that are different for each individual
+2. The number and spacing of occasions can vary between individuals
+3. The covariances between occasions can be explicitly modeled.
+4. Repeated measures ANOVA is a special (and more restrictive) case of MLM (suggesting that we should start with the less restrictive model: MLM)
+5. I is easy to add higher levels to model
+6. It is straight-forward to add time-varying or time-constant explanatory variables to the model.
+
+But, the measures must be calibrated across time points. 
+
+## Example with Fixed Occasions
+
+For this example, we are using data from chapter 5 of Hox, Moerbeek, and van de Schoot (2018). 
+The data contain the college GPA of 200 college students collected over six occasions. 
+A time varying covariate, the job status of each student, was also collected at the six occasions. 
+Two time invariant variables, high school GPA and the students gender were also collected. There is another outcome variable named `admitted`, that is dichotomous and indicates whether the student was admitted to the university of their choice.
+We will not use this last variable in this post.
+
+The purpose of this example study is to study the impact of having a job on college GPA. 
+But, we will want to control for gender and high school GPA in our analyses.
+
+First, we need to load the correct data.
+There are at least two ways we can structure 
+Load all packages to be used. Note that the data for this project are in SPSS format, so you my need to install the `haven` package which allow for importing SPSS, Stata, and SAS data files into R.
+So, you may need to run `install.packages('haven')` before running the code chunk below.
+```{r}
+# install the haven package which allows importing SPSS data, among other 
+# formats (Stata, SAS)
+library(haven) 
+library(lme4)
+library(lmerTest)
+library(ggplot2)
+library(texreg)
+library(performance)
+library(interactions)
+```
+
+##  Import Data
+
+Import the `gpa2long.sav` file from the data directory of the **longidtudinal_pgaCurran** project.
+```{r, eval=FALSE}
+gpa2long <- read_sav("data/gpa2long.sav")
+```
+
+```{r, echo=FALSE}
+gpa2long <- read_sav("projects/longitudinalMLM_fixedTiime/data/gpa2long.sav")
+```
+
+Note that the variables in this data have preserved the SPSS labeling, which can be used to determine the factor labels. 
+To see this use the `str()` function on the data frame.
+
+## Clean Data
+
+The data is in good shape, all we need to do is convert the categorical variables to factors.
+Here, I leave occasion as numeric, to reflect the assumption that this variable measure evenly spaced time points, that start with zero at the first time point. 
+```{r}
+gpa2long <- within(gpa2long, {
+  student <- factor(student)
+  gender <- factor(sex, labels = c("male", "female"))
+  admitted <- factor(admitted, labels = c("no", "yes"))
+})
+```
+
+## Explore Data
+
+This first plot is a spaghetti plot, which just plots the outcome at each occasion with the points for each individual connected with a line. Its hard to see what is going on with each individual, but we can see a general trend in increases in GPA across occasion.
+
+```{r, warning=FALSE}
+ggplot(gpa2long, aes(y = gpa, x = occas, group = student)) + 
+  geom_line()
+```
+
+Another way to look at the general trend is to get a smoothed line summarizing the trend across individuals. 
+
+```{r}
+ggplot(gpa2long, aes(y = gpa, x = occas)) +
+  geom_point() + geom_smooth(method = "loess")
+```
+
+The loess smoothing algorithm allows for a local average curve to be fit to the data, which would allow for a curvy line. 
+The fact that the line looks very straight suggest a linear relation between gpa across occasions.
+This plot also demonstrate the fixed nature of the occasions, as they line up in descrete columns.
+
+We can also look at the linear relation across occasions for each individual.
+
+```{r}
+ggplot(gpa2long, aes(y = gpa, x = occas, group = student)) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+Here we see that descriptively our sample demonstrates differences in the estimated slopes across individuals. 
+There even seem to be some that are negative.
+
+We can look at the mean GPA across time in a few ways:
+
+```{r}
+boxplot(gpa ~ occas, gpa2long)
+```
+
+This plot actually shows the medians and other quartiles, but we see the upward trend in GPA.
+
+Next, I calculate the mean GPA for each occasion, and print and plot them.
+
+```{r}
+gpameans_occas <- aggregate(gpa ~ occas, gpa2long, mean)
+gpameans_occas
+plot(gpa ~ occas, gpameans_occas)
+```
+
+
+
+
+### **Exercise**
+1. Create some more plots exploring the relation of key variables with other variables in the data.
+2. How would you summarize what you have learned about the data to this point?
+3. Obtain some summary statistics of the data, now that you have a sense of data as a whole. Based on what you learned from the graphic exploration, are these statistics reasonable summaries of this data?
+
+## Models
+
+Now we are ready to run a series of model of increasing complexity.
+
+```{r}
+mod0 <- lmer(gpa ~ 1 + (1 | student), gpa2long, REML = FALSE)
+modtime <- lmer(gpa ~ occas + (1 | student), gpa2long, REML = FALSE)
+modtjob <- lmer(gpa ~ occas + job + (1 | student), gpa2long, REML = FALSE)
+modfull <- lmer(gpa ~ occas + job + highgpa + gender + (1 | student), gpa2long,
+                REML = FALSE)
+summary(modfull)
+```
+
+```{r, results = 'asis'}
+
+htmlreg(list(mod0, modtime, modtjob, modfull), digits = 3, 
+        custom.model.names = c("$M_1$: null model", "$M_2$:+occas.",
+                               "$M_3$:+jobsat", "$M_4$:+gpa, gender"))
+```
+
+
+#### Testing Nonlinear trends in GPA growth
+
+```{r}
+modtimepoly <- lmer(gpa ~ poly(occas, 2) + (1 | student), gpa2long, REML = FALSE)
+summary(modtimepoly)
+```
+
+## Adding Random Slopes
+
+```{r}
+modfullrs <- lmer(gpa ~ occas + job + I(highgpa - mean(highgpa)) + gender + (occas |student), 
+                  gpa2long, REML = FALSE)
+summary(modfullrs)
+```
+
+```{r, results = 'asis'}
+htmlreg(list(modtime, modfullrs), 
+        custom.model.names = c("$M_5$:+occas rand", 
+                               "$M_6$:+cross-level int."))
+```
+
+### Test the addition of the random slope for occasions.
+
+```{r}
+ranova(modfullrs)
+anova(modfull, modfullrs) # equivalent
+```
+
+## Cross-level Interaction occassion*gender
+
+```{r}
+modfullrsx <- lmer(gpa ~ occas + job + I(highgpa - mean(highgpa)) + gender + 
+                                          gender:occas + 
+                     (occas |student), 
+                  gpa2long, REML = FALSE)
+```
+
+```{r, results='asis'}
+htmlreg(list(modfull, modfullrs, modfullrsx), digits = 3)
+```
+
+### Get correlation between variance components 
+```{r}
+
+VarCorr(modfullrsx)
+```
+
+### Figure 5.4, p. 82.
+
+```{r}
+interact_plot(modfullrsx, occas, gender)
+```
+
+```{r}
+sim_slopes(modfullrsx, occas, gender)
+```
+
+## What about smaller sample size (at level 2)? 
+
+```{r}
+
+# create a smaller data set by sampling individuals from the full data:
+n <- 12 # level 2 sample size. You can change this to play around with n.
+# Index of sampled students
+set.seed(20200702) # set the random seed for reproducibility
+sampidx <- as.numeric(sample(unique(gpa2long$student), replace = FALSE, size = n)) 
+
+# Create smaller sample data
+gpa2long12 <- gpa2long[gpa2long$student %in% sampidx, ]
+```
+
+
+## References
+
+Hox, J.J., Moerbeek, M. and Van de Schoot, R. (2018), Multilevel Analysis: Techniques and applications, Sage, New York, NY.

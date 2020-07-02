@@ -18,15 +18,19 @@ popdat <- read_sav(file ="https://github.com/MultiLevelAnalysis/Datasets-third-e
 
 
 
-```{r intro}
-n <- 1000
-x1 <- rnorm(n, 50, 10)
-hist(x1, breaks = "fd", freq = FALSE)
-curve(dnorm(x, mean = 50, sd = sd(x1)), lwd = 3, add = TRUE, col = "red")
+```{r}
+n <- 2000
+set.seed(12345)
+popular <- rnorm(n, 5, 2)
+popular[popular < 0] <- 0
+popular[popular >10] <- 10
+summary(popular)
+hist(popular, breaks = "fd", freq = FALSE)
+curve(dnorm(x, mean = mean(popular), sd = sd(popular)), lwd = 3, add = TRUE, col = "red")
 ```
 
 ```{r}
-y <- 5
+summary(lm(popular ~ 1))
 ```
 
 
