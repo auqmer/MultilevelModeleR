@@ -224,7 +224,7 @@ anova(modage2_2rs, modage2_2rsx, modage2_2rsx2)
 ```
 
 
-```{r, results='asis'}
+```{r}
 # Respecify model without centering for plots
 modfull <- lmer(read ~ kidagetv + I(kidagetv^2) + momage + homecog + homeemo + 
                   kidagetv:momage + kidagetv:homeemo +
