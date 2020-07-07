@@ -1,0 +1,245 @@
+---
+title: "Longitudinal Modeling Varying Occasions"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, comment = NULL)
+library(haven) 
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(texreg)
+library(performance)
+library(interactions)
+```
+
+## Example with Varying Occasions
+
+This example builds on the tutorial about college GPA, in **Analysing Longitudinal Data: Fixed Occasions**.
+Here, instead of analyzing data in which subjects are measured at the same time points, we have data where the subjects were measured at varying time points. 
+
+Here is the description from the [Multilevel Analysis website](https://multilevel-analysis.sites.uu.nl/datasets/) for the Hox, Moerbeek, & van de Schoot (2018) text:
+
+>The data are a sample of 405 children who were within the first two years of entry to elementary school. The data consist of four repeated measures of both the child’s antisocial behavior and the child’s reading recognition skills. In addition, on the first measurement occasion, measures were collected of emotional support and cognitive stimulation provided by the mother. The data were collected using face-to-face interviews of both the child and the mother at two-year intervals between 1986 and 1992."
+    
+### Variables
+
+variable name | variable label 
+------|---------
+id | Child identification number
+anti*1-4* | antisocial behavior time *1,2,3,4* 
+read*1-4* | reading ability time *1,2,3,4* 
+kidgen | gender child (0 = girl, 1 = boy)
+momage | age mother at time 1
+kidage | age child at time 1
+homecog | cognitive stimulation 
+homeemo | emotional support 
+nmis | number of missing values
+    
+### Import and Clean Data
+     
+```{r data}
+curran <- read_sav("data/CurranData.sav")
+```
+
+
+```{r}
+curran <- within(curran, {
+  id <- factor(id)
+  kidgen <- factor(kidgen, labels = c("girl", "boy"))
+})
+
+curranlong <- gather(curran, key = key, value = val, anti1:read4)
+```
+
+```{r}
+curranlong <- separate(curranlong, 
+                       col = key, 
+                       into = c("variable", "occasion"), 
+                       sep = 4)
+```
+
+
+```{r}
+curranlong <- spread(curranlong, key = variable, value = val)
+curranlong <- arrange(curranlong, id, occasion)
+```
+
+```{r}
+curranlong <- within(curranlong, {
+  occasion <- as.numeric(occasion)-1
+  kidagetv <- kidage + 2*occasion
+})
+
+```
+
+```{r}
+curranlong <- subset(curranlong, !is.na(read) | !is.na(anti))
+# or with dplyr
+# curranlong <- filter(!is.na(read) | !is.na(anti))
+```
+
+```{r}
+tapply(curranlong$read, curranlong$occasion, function(x) sum(!is.na(x)))
+```
+
+
+```{r}
+ggplot(curranlong, aes(y = read, x = occasion)) + geom_point()
+```
+
+```{r}
+ggplot(curranlong, aes(y = read, x = kidage)) + geom_point()
+```
+
+```{r}
+ggplot(curranlong, aes(y = read, x = kidagetv)) + geom_point()
+```
+
+```{r}
+ggplot(curranlong, aes(y = read, x = kidagetv, group = id)) + geom_point() +
+  geom_line(alpha = .3)
+```
+
+## Missing Data Analysis
+
+```{r}
+library(VIM)
+
+curran <- read_sav("data/CurranData.sav")
+
+curran <- within(curran, {
+  id <- factor(id)
+  kidgen <- factor(kidgen, labels = c("girl", "boy"))
+})
+
+# Create long version of data
+curranlong <- curran %>% 
+  gather( key = key, value = val, anti1:read4) %>% 
+  separate(col = key, into = c("variable", "occasion"), sep = 4) %>% 
+  spread(key = variable, value = val) %>% 
+  arrange(id, occasion) %>% 
+  mutate(time = as.numeric(occasion)-1,
+         kidagetv = kidage + 2*time,
+         kidage6 = kidagetv - 6,
+         kidagesqr = kidage6^2,
+         c_momage = momage - mean(momage),
+         c_homecog = homecog - mean(homecog),
+         c_homeemo = homeemo - mean(homeemo)) # %>% 
+#  filter(!is.na(read) | !is.na(anti))
+aggr(curranlong, numbers = TRUE, prop = TRUE)
+```
+
+```{r}
+curranlong <- filter(curranlong, !is.na(read) | !is.na(anti))
+aggr(curranlong, numbers = TRUE)
+```
+
+
+## Models
+
+```{r}
+curran <- read_sav("data/CurranData.sav")
+
+curran <- within(curran, {
+  id <- factor(id)
+  kidgen <- factor(kidgen, labels = c("girl", "boy"))
+})
+# Create long version of data
+curranlong <- curran %>% 
+  gather( key = key, value = val, anti1:read4) %>% 
+  separate(col = key, into = c("variable", "occasion"), sep = 4) %>% 
+  spread(key = variable, value = val) %>% 
+  arrange(id, occasion) %>% 
+  mutate(time = as.numeric(occasion)-1,
+         kidagetv = kidage + 2*time,
+         kidage6 = kidagetv - 6,
+         kidagesqr = kidage6^2,
+         c_momage = momage - mean(momage),
+         c_homecog = homecog - mean(homecog),
+         c_homeemo = homeemo - mean(homeemo)) %>% 
+  filter(!is.na(read) | !is.na(anti))
+```
+
+```{r}
+mod0 <- lmer(read ~ 1 + (1 | id), curranlong, REML = FALSE)
+modage <- lmer(read ~ kidage6 + (1 | id), curranlong, REML = FALSE)
+
+modage2 <-             update(modage, . ~ . + kidagesqr)
+modage2_2 <-          update(modage2, . ~ . + c_momage + c_homecog + c_homeemo)
+modage2_2rs <-      update(modage2_2, . ~ . - (1 | id) + (1 + kidage6 | id))
+modage2_2rsx <-   update(modage2_2rs, . ~ . + kidage6:c_momage + 
+                                              kidage6:c_homeemo +
+                                              kidage6:c_homecog)
+
+modage2_2rsx2 <- update(modage2_2rsx, . ~ . - kidage6:c_homecog)
+
+```
+
+## Baseline Models: Modeling Child Age
+
+```{r, results='asis'}
+htmlreg(list(mod0, modage, modage2), 
+          custom.model.names = c("Null", "Linear Age", "Quadratic Age"))
+```
+
+```{r}
+anova(modage, modage2)
+```
+
+## Models with Level 2 Predictors
+
+Note, we are not considering the antisocial behavior in these models.
+
+```{r, results='asis'}
+htmlreg(list(modage2, modage2_2),
+          custom.model.names = c("Quadratic", "Quadratic+L2 pred"))
+```
+
+```{r}
+anova(modage2, modage2_2)
+```
+
+## Model with Random Slope of age
+
+```{r, results='asis'}
+htmlreg(list(modage2_2, modage2_2rs), 
+          custom.model.names = c("Fixed Age Curve", "Random Age Curve"))
+```
+
+```{r}
+ranova(modage2_2rs)
+```
+
+## Model with Cross-level Interactions
+
+```{r, results='asis'}
+htmlreg(list(modage2_2rs, modage2_2rsx, modage2_2rsx2),
+          custom.model.names = c("No Interaction", "3 Interactions", "2 Interactions"))
+```
+
+```{r}
+anova(modage2_2rs, modage2_2rsx, modage2_2rsx2)
+```
+
+
+```{r, results='asis'}
+# Respecify model without centering for plots
+modfull <- lmer(read ~ kidagetv + I(kidagetv^2) + momage + homecog + homeemo + 
+                  kidagetv:momage + kidagetv:homeemo +
+                  (kidagetv | id), curranlong, REML = FALSE)
+# Interactions for final model
+interact_plot(modfull, kidagetv, momage, modx.values = c(21, 25, 29))
+
+interact_plot(modfull, kidagetv, homeemo, modx.values = c(0, 9.2, 13))
+
+sim_slopes(modfull, kidagetv, momage, johnson_neyman = TRUE, jnplot = TRUE)
+
+```
+
+```{r}
+sim_slopes(modfull, kidagetv, momage, johnson_neyman = TRUE, jnplot = TRUE)
+
+```
+

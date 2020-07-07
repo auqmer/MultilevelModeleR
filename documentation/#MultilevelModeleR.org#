@@ -1,0 +1,12 @@
+#+Title: Organization of MultilevelModeleR
+#+Author: William Murrah
+
+* Page Scripts
+** LogitudinalModeling_varyingTime_dataCleaning
+*** Introduce RMarkdown
+*** Introduce Data example
+*** Discuss Wide vs Long data
+*** Discuss Tidyverse
+*** Walk through dplyr wide to long
+*** Visualize different time variables
+** LongitudinalModeling_varyingTime_Models

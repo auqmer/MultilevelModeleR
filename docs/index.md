@@ -7,5 +7,5 @@ This website contains materials to help you learn about multilevel modeling, usi
 
 ## Content
 
-* [Analysing Longitudinal Data: Fixed Occasions](https://auqmer.github.io/MultilevelModeleR/LongitudinalModeling_fixedTime.html)
-
+* [Analyzing Longitudinal Data: Fixed Occasions](https://auqmer.github.io/MultilevelModeleR/LongitudinalModeling_fixedTime.html)
+* [Analyzing Longitudinal Data : Varying Occasions](https://auqmer.github.io/MultilevelModeleR/LongitudinalModeling_varyingTime.html)
