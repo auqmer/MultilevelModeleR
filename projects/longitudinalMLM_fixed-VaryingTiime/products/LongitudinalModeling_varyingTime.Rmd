@@ -82,6 +82,7 @@ curranlong <- subset(curranlong, !is.na(read) | !is.na(anti))
 
 ```{r}
 tapply(curranlong$read, curranlong$occasion, function(x) sum(!is.na(x)))
+tapply(curranlong$anti, curranlong$occasion, function(x) sum(!is.na(x)))
 ```
 
 
@@ -152,8 +153,8 @@ curranlong <- curran %>%
   separate(col = key, into = c("variable", "occasion"), sep = 4) %>% 
   spread(key = variable, value = val) %>% 
   arrange(id, occasion) %>% 
-  mutate(time = as.numeric(occasion)-1,
-         kidagetv = kidage + 2*time,
+  mutate(occasion = as.numeric(occasion)-1,
+         kidagetv = kidage + 2*occasion,
          kidage6 = kidagetv - 6,
          kidagesqr = kidage6^2,
          c_momage = momage - mean(momage),
@@ -174,6 +175,8 @@ modage2_2rsx <-   update(modage2_2rs, . ~ . + kidage6:c_momage +
                                               kidage6:c_homecog)
 
 modage2_2rsx2 <- update(modage2_2rsx, . ~ . - kidage6:c_homecog)
+modage2_2rsx3 <- update(modage2_2rsx, . ~ . - kidage6:c_momage)
+modage2_2rsx4 <- update(modage2_2rsx2, . ~ . - kidage6:c_homeemo)
 
 ```
 

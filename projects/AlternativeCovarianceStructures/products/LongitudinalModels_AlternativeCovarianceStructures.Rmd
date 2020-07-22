@@ -1,0 +1,140 @@
+---
+title: 'Longitudinal Modeling' 
+subtitle: 'Alternative Covariance Structures'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, comment = NULL)
+```
+
+```{r}
+# packages used -----------------------------------------------------------
+library(tidyverse)  
+library(car)
+library(psych)
+library(nlme)
+```
+
+
+Alternative Covariance Structures form a continuum from the most constrained to the least constrained varaince/covariance patter imposed by the model. 
+
+
+## Data Example
+
+```{r}
+mood <- haven::read_dta("data/STATA_Chapter4.dta")
+
+mood <- transform(mood,
+                  studyday = factor(studyday),
+                  personid = factor(personid)
+)
+
+```
+
+### Create wide dataframe
+
+```{r}
+moodwide <- reshape(mood, direction = "wide", v.names = "posmood",
+                     idvar = "personid", timevar = "studyday")
+```
+
+## Explore Mood Data
+
+```{r}
+round(cov(moodwide[ ,-1], use = "complete.obs"), 3)
+```
+
+### Plot Individual Trajectories
+
+```{r}
+ggplot(mood, aes(studyday, posmood, group = personid, color = personid)) + 
+  geom_line() +  # geom_point() +
+  stat_summary(fun = mean, geom = "line", lwd = 2, color = "red",
+               aes(group = 1)) + 
+  theme(legend.position = "none")
+```
+
+## Unstructured 
+
+```{r}
+unstruct <- gls(posmood ~ studyday, mood, 
+                correlation=corSymm(form = ~ 1 |personid),  
+                weights=varIdent(form = ~ 1|studyday),method = "REML")
+summary(unstruct)
+```
+
+```{r}
+getVarCov(unstruct)
+```
+
+## Compound Symmetry
+
+```{r}
+comsym <- gls(posmood ~ studyday, mood, 
+              correlation=corCompSymm(form = ~ 1 |personid),
+              method="REML")
+summary(comsym)
+```
+
+```{r}
+getVarCov(comsym)
+comsym$modelStruct$corStruct
+
+# Visualize the full correlation matrix
+cc <- corMatrix(comsym$modelStruct$corStruct)[[5]]
+round(cc, 2)
+```
+
+## Compound Symmetry, Heterogeneous 
+```{r}
+# CS Heterogeneous --------------------------------------------------------
+
+hetercom <- gls(posmood ~ studyday, mood, 
+                correlation=corCompSymm(form = ~ 1 |personid),
+                weights=varIdent(form = ~1|studyday), 
+                method="REML")
+getVarCov(hetercom)
+```
+
+
+## Autoregressive
+```{r}
+# Autoregressive ----------------------------------------------------------
+
+auto1 <- gls(posmood ~ studyday, mood, 
+             correlation=corAR1(form = ~ 1 |personid),
+             method="REML")
+cc <- corMatrix(auto1$modelStruct$corStruct)[[5]]
+print(cc)
+
+cc * auto1$sigma^2
+```
+
+## Autoregressive, Heterogeneous
+```{r}
+# Autoregressive Heterogeneous --------------------------------------------
+
+hauto1 <- gls(posmood ~ studyday, mood, 
+              correlation=corAR1(form = ~ 1 |personid), 
+              weights=varIdent(form = ~1|studyday), method="REML")
+getVarCov(hauto1)
+```
+
+## Toeplitz
+```{r}
+# Toeplitz ----------------------------------------------------------------
+
+toep <- gls(posmood ~ studyday, mood, 
+            correlation=corARMA(form = ~ 1 |personid, p=3, q=0), 
+            method="REML")
+cc <- corMatrix(toep$modelStruct$corStruct)[[5]]
+print(cc)
+cc * toep$sigma^2
+```
+
+## Compare Models
+```{r}
+
+anova(comsym,hetercom,auto1,hauto1,toep, unstruct)
+```

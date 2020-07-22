@@ -41,6 +41,20 @@ curranlong <- curran %>%
          c_homeemo = homeemo - mean(homeemo)) %>% 
   filter(!is.na(read) | !is.na(anti))
 
+# Base R version of wide to long ------------------------------------------
+# curran <- as.data.frame(curran)
+# names(curran) <- sub("anti", "anti.", names(curran))
+# names(curran) <- sub("read", "read.", names(curran))
+# curranlong2 <- reshape(curran, varying = c("anti.1", "read.1", 
+#                                            "anti.2", "read.2",
+#                                            "anti.3", "read.3",
+#                                            "anti.4", "read.4"),
+#                        v.names = c("anti", "read"),
+#                        times = 1:4,
+#                        direction = "long", 
+#                        idvar = "id",
+#                        timevar = "occasion")
+# curranlong2 <- curranlong2[sort(c(curranlong2$id, curranlong2$occasion)), ]
 
 # Missing data analysis ---------------------------------------------------
 
